@@ -5,6 +5,12 @@ import { TablutSocketService } from './services/tablut-socket.service';
 import { Pos, Side, TablutState } from './utils/types';
 
 const LS_KEY = 'tablut:gameId';
+const ATTACKER_STARTS = new Set([
+  '0,3', '0,4', '0,5', '1,4',
+  '8,3', '8,4', '8,5', '7,4',
+  '3,0', '4,0', '5,0', '4,1',
+  '3,8', '4,8', '5,8', '4,7'
+]);
 
 function readIdFromUrl(): string | null {
   const qs = new URLSearchParams(window.location.search);
@@ -58,6 +64,7 @@ export class App {
 
   rows = Array.from({ length: 9 }, (_, i) => i);
   cols = Array.from({ length: 9 }, (_, i) => i);
+  files = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
   turnLabel = computed(() => {
     const st = this.state();
@@ -112,7 +119,7 @@ export class App {
     this.ws.onMoveResult().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((mv) => {
       const side = mv.side === 'ATTACKER' ? 'Atacante' : 'Defensor';
       const c = mv.captures.length;
-      this.pushLog(`${side}: (${mv.from.row},${mv.from.col}) -> (${mv.to.row},${mv.to.col})${c ? ` x${c}` : ''}`);
+      this.pushLog(`${side}: ${this.toCellNotation(mv.from)} -> ${this.toCellNotation(mv.to)}${c ? ` x${c}` : ''}`);
     });
 
     this.ws.onTurnNote().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(({ message }) => {
@@ -231,6 +238,17 @@ export class App {
     return row === 4 && col === 4;
   }
 
+  isAttackerStart(row: number, col: number): boolean {
+    return ATTACKER_STARTS.has(`${row},${col}`);
+  }
+
+  isKingAxis(row: number, col: number): boolean {
+    if (this.isThrone(row, col) || this.isAttackerStart(row, col)) return false;
+    const horizontalCentral = row === 4 && col >= 2 && col <= 6;
+    const verticalCentral = col === 4 && row >= 2 && row <= 6;
+    return horizontalCentral || verticalCentral;
+  }
+
   isSelected(row: number, col: number): boolean {
     const from = this.selectedFrom();
     return !!from && from.row === row && from.col === col;
@@ -307,11 +325,7 @@ export class App {
   trackByCell = (_: number, col: number): number => col;
 
   private pushLog(msg: string): void {
-    const now = new Date();
-    const hh = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
-    const ss = String(now.getSeconds()).padStart(2, '0');
-    this.logs.update((items) => [`[${hh}:${mm}:${ss}] ${msg}`, ...items].slice(0, 40));
+    this.logs.update((items) => [...items, msg].slice(-40));
   }
 
   private toFriendlyError(raw: unknown): string | null {
@@ -334,8 +348,14 @@ export class App {
     for (const mv of st.moveHistory) {
       const side = mv.side === 'ATTACKER' ? 'Atacante' : 'Defensor';
       const c = mv.captures.length;
-      lines.push(`#${mv.turn} ${side}: (${mv.from.row},${mv.from.col}) -> (${mv.to.row},${mv.to.col})${c ? ` x${c}` : ''}`);
+      lines.push(`${side}: ${this.toCellNotation(mv.from)} -> ${this.toCellNotation(mv.to)}${c ? ` x${c}` : ''}`);
     }
-    return lines.reverse().slice(0, 40);
+    return lines.slice(-40);
+  }
+
+  private toCellNotation(pos: Pos): string {
+    const file = this.files[pos.col] ?? '?';
+    const rank = 9 - pos.row;
+    return `${file}${rank}`;
   }
 }

@@ -23,30 +23,40 @@
 
   <main class="board-and-log" *ngIf="state() as st">
     <div class="board-wrap">
-      <div class="board">
-        <div class="row" *ngFor="let r of rows">
-          <button
-            type="button"
-            class="cell"
-            *ngFor="let c of cols; trackBy: trackByCell"
-            [class.cell-edge]="isEdge(r, c)"
-            [class.cell-throne]="isThrone(r, c)"
-            [class.cell-selected]="isSelected(r, c)"
-            [class.cell-target]="isTarget(r, c)"
-            [disabled]="loading() || st.phase === 'GAME_OVER'"
-            (click)="onCellClick(r, c)"
-          >
-            <span [class]="cellPieceClass(r, c)">{{ cellLabel(r, c) }}</span>
-          </button>
+      <div class="board-shell">
+        <div class="board-row" *ngFor="let r of rows">
+          <span class="coord-cell rank">{{ 9 - r }}</span>
+          <div class="row">
+            <button
+              type="button"
+              class="cell"
+              *ngFor="let c of cols; trackBy: trackByCell"
+              [class.cell-edge]="isEdge(r, c)"
+              [class.cell-throne]="isThrone(r, c)"
+              [class.cell-attacker-start]="isAttackerStart(r, c)"
+              [class.cell-king-axis]="isKingAxis(r, c)"
+              [class.cell-selected]="isSelected(r, c)"
+              [class.cell-target]="isTarget(r, c)"
+              [disabled]="loading() || st.phase === 'GAME_OVER'"
+              (click)="onCellClick(r, c)"
+            >
+              <span [class]="cellPieceClass(r, c)">{{ cellLabel(r, c) }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="coords-bottom">
+          <span class="coord-cell coord-spacer"></span>
+          <span class="coord-cell file" *ngFor="let f of files">{{ f }}</span>
         </div>
       </div>
     </div>
 
     <aside class="log-panel">
       <h2>Bitácora</h2>
-      <ul>
+      <ol>
         <li *ngFor="let item of logs()">{{ item }}</li>
-      </ul>
+      </ol>
     </aside>
   </main>
 
