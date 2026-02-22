@@ -6,8 +6,7 @@
     </div>
     <div class="top-actions">
       <button class="btn ghost" (click)="onNewGameClick()">Nueva partida</button>
-      <button class="btn" [disabled]="loading()" (click)="onDifficultyChange(2)">Nivel 2</button>
-      <button class="btn" [disabled]="loading()" (click)="onDifficultyChange(4)">Nivel 4</button>
+      <button class="btn" [disabled]="loading()" (click)="openResources()">Recursos</button>
     </div>
   </header>
 
@@ -85,9 +84,53 @@
         </div>
       </div>
 
-      <button class="btn primary" [disabled]="loading() || setupSubmitting()" (click)="startNewGame()">
-        {{ setupSubmitting() ? 'Creando partida...' : 'Comenzar' }}
-      </button>
+      <div class="setup-actions">
+        <button
+          class="btn ghost"
+          *ngIf="state()"
+          [disabled]="loading() || setupSubmitting()"
+          (click)="closeSetup()"
+        >
+          Cancelar
+        </button>
+        <button class="btn primary" [disabled]="loading() || setupSubmitting()" (click)="startNewGame()">
+          {{ setupSubmitting() ? 'Creando partida...' : 'Comenzar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="setup-overlay" *ngIf="resourcesOpen()">
+    <div class="setup-card">
+      <h2>Recursos</h2>
+      <p>Accesos útiles de la partida.</p>
+
+      <div class="setup-block">
+        <button class="btn primary resources-btn" (click)="openHelp()">Guía del juego</button>
+      </div>
+
+      <div class="setup-block">
+        <a
+          class="btn ghost resources-link"
+          [attr.href]="githubUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Repositorio GitHub
+        </a>
+      </div>
+
+      <button class="btn" (click)="closeResources()">Cerrar</button>
+    </div>
+  </div>
+
+  <div class="setup-overlay" *ngIf="helpOpen()">
+    <div class="setup-card help-card">
+      <h2>Guía de juego</h2>
+      <p *ngIf="helpLoading()">Cargando guía...</p>
+      <p class="message" *ngIf="helpError()">{{ helpError() }}</p>
+      <div class="help-content" *ngIf="!helpLoading() && !helpError()" [innerHTML]="helpHtml()"></div>
+      <button class="btn" (click)="closeHelp()">Cerrar</button>
     </div>
   </div>
 

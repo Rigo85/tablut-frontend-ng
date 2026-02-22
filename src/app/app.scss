@@ -328,6 +328,12 @@ h1 {
   margin: 14px 0;
 }
 
+.setup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .setup-block label {
   display: block;
   margin-bottom: 8px;
@@ -368,6 +374,119 @@ h1 {
 
 .btn.ghost {
   background: transparent;
+}
+
+.resources-btn {
+  width: 100%;
+}
+
+.resources-link {
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+}
+
+.disabled-link {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+
+.help-card {
+  width: min(860px, 94vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-content {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--ui-text);
+  overflow: auto;
+  line-height: 1.5;
+}
+
+.help-content h1,
+.help-content h2,
+.help-content h3 {
+  margin: 0.8em 0 0.45em;
+  color: var(--ui-text);
+  font-family: 'Source Serif 4', 'Georgia', serif;
+}
+
+.help-content h1 {
+  font-size: 1.3rem;
+}
+
+.help-content h2 {
+  font-size: 1.15rem;
+}
+
+.help-content h3 {
+  font-size: 1.02rem;
+}
+
+.help-content p {
+  margin: 0.5em 0;
+}
+
+.help-content ul {
+  margin: 0.45em 0 0.7em;
+  padding-left: 1.2rem;
+}
+
+.help-content li {
+  margin: 0.2em 0;
+}
+
+.help-content code {
+  font-family: 'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace;
+  background: rgba(0, 0, 0, 0.24);
+  padding: 0.1em 0.34em;
+  border-radius: 4px;
+}
+
+.help-content blockquote {
+  margin: 0.6em 0;
+  padding: 0.5em 0.7em;
+  border-left: 3px solid var(--ui-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ui-text-muted);
+}
+
+.help-content hr {
+  border: 0;
+  border-top: 1px solid var(--ui-border);
+  margin: 0.85em 0;
+}
+
+.help-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  font-size: 0.9rem;
+}
+
+.help-content th,
+.help-content td {
+  border: 1px solid var(--ui-border);
+  padding: 0.35em 0.45em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.help-content th {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.help-content a {
+  color: #9ec4dc;
+  text-decoration: underline;
 }
 
 .loading-overlay {

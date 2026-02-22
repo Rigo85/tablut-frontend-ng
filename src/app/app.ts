@@ -41,6 +41,132 @@ function writeGameIdToLocalStorage(id: string): void {
   }
 }
 
+function resolveBackendUrl(): string {
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname || 'localhost';
+  return `${protocol}//${hostname}:3009`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function renderInlineMarkdown(line: string): string {
+  let out = escapeHtml(line);
+  out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  out = out.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  out = out.replace(/`(.+?)`/g, '<code>$1</code>');
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  return out;
+}
+
+function isTableRow(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.startsWith('|') && trimmed.includes('|');
+}
+
+function isTableSeparator(line: string): boolean {
+  const trimmed = line.trim();
+  return /^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(trimmed);
+}
+
+function parseTableRow(line: string): string[] {
+  const trimmed = line.trim().replace(/^\|/, '').replace(/\|$/, '');
+  return trimmed.split('|').map((cell) => renderInlineMarkdown(cell.trim()));
+}
+
+function markdownToHtml(md: string): string {
+  const lines = md.replaceAll('\r\n', '\n').split('\n');
+  const html: string[] = [];
+  let inList = false;
+
+  const closeList = () => {
+    if (inList) {
+      html.push('</ul>');
+      inList = false;
+    }
+  };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i];
+    const line = raw.trimEnd();
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      closeList();
+      continue;
+    }
+
+    if (trimmed === '---') {
+      closeList();
+      html.push('<hr/>');
+      continue;
+    }
+
+    const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
+    if (heading) {
+      closeList();
+      const level = heading[1].length;
+      html.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+      continue;
+    }
+
+    if (/^>\s+/.test(trimmed)) {
+      closeList();
+      html.push(`<blockquote>${renderInlineMarkdown(trimmed.replace(/^>\s+/, ''))}</blockquote>`);
+      continue;
+    }
+
+    if (/^- /.test(trimmed)) {
+      if (!inList) {
+        html.push('<ul>');
+        inList = true;
+      }
+      html.push(`<li>${renderInlineMarkdown(trimmed.slice(2))}</li>`);
+      continue;
+    }
+
+    if (
+      i + 1 < lines.length &&
+      isTableRow(trimmed) &&
+      isTableSeparator(lines[i + 1]?.trim() ?? '')
+    ) {
+      closeList();
+      const headers = parseTableRow(trimmed);
+      html.push('<table><thead><tr>');
+      for (const h of headers) {
+        html.push(`<th>${h}</th>`);
+      }
+      html.push('</tr></thead><tbody>');
+
+      i += 2;
+      while (i < lines.length && isTableRow(lines[i])) {
+        const cells = parseTableRow(lines[i]);
+        html.push('<tr>');
+        for (const c of cells) {
+          html.push(`<td>${c}</td>`);
+        }
+        html.push('</tr>');
+        i += 1;
+      }
+      html.push('</tbody></table>');
+      i -= 1;
+      continue;
+    }
+
+    closeList();
+    html.push(`<p>${renderInlineMarkdown(trimmed)}</p>`);
+  }
+
+  closeList();
+  return html.join('\n');
+}
+
 @Component({
   selector: 'app-root',
   imports: [CommonModule],
@@ -57,6 +183,13 @@ export class App {
   setupSubmitting = signal<boolean>(false);
   setupHumanSide = signal<Side>('DEFENDER');
   setupDifficulty = signal<2 | 4>(4);
+  resourcesOpen = signal<boolean>(false);
+  helpOpen = signal<boolean>(false);
+  helpLoading = signal<boolean>(false);
+  helpError = signal<string>('');
+  helpText = signal<string>('');
+  helpHtml = signal<string>('');
+  readonly githubUrl = 'https://github.com/Rigo85/tablut-backend-ts';
 
   selectedFrom = signal<Pos | null>(null);
   private currentStateGameId: string | null = null;
@@ -152,7 +285,11 @@ export class App {
     } catch (err: any) {
       const friendly = this.toFriendlyError(err?.message);
       this.message.set(friendly ? `${errorMessage}. ${friendly}` : errorMessage);
-      this.loading.set(false);
+    } finally {
+      // For normal actions we can stop spinner once ack resolves, even if a ws state event is delayed/lost.
+      if (!this.pendingNewGameWithBotOpening) {
+        this.loading.set(false);
+      }
     }
   }
 
@@ -165,9 +302,15 @@ export class App {
     const gameId = fromUrl ?? fromStorage;
 
     if (gameId) {
-      await this.runAction(async () => {
+      try {
         await this.ws.join(gameId);
-      }, 'No se pudo cargar la partida');
+        return;
+      } catch {
+        // If cached game is gone (Redis TTL), recover by creating a fresh game automatically.
+        await this.runAction(async () => {
+          await this.ws.gameNew(this.setupHumanSide(), this.setupDifficulty());
+        }, 'No se pudo recuperar la partida anterior');
+      }
       return;
     }
 
@@ -210,18 +353,47 @@ export class App {
     this.setupOpen.set(true);
   }
 
-  async onDifficultyChange(next: 2 | 4): Promise<void> {
-    this.setupDifficulty.set(next);
-    const st = this.state();
-    if (!st) return;
-
-    await this.runAction(async () => {
-      await this.ws.changeDifficulty(st.id, next);
-    }, 'No se pudo cambiar dificultad');
+  closeSetup(): void {
+    // On first boot without game, setup remains mandatory.
+    if (!this.state()) return;
+    this.setupOpen.set(false);
   }
 
   onSelectHumanSide(side: Side): void {
     this.setupHumanSide.set(side);
+  }
+
+  openResources(): void {
+    this.resourcesOpen.set(true);
+  }
+
+  closeResources(): void {
+    this.resourcesOpen.set(false);
+  }
+
+  async openHelp(): Promise<void> {
+    this.resourcesOpen.set(false);
+    this.helpOpen.set(true);
+    this.helpLoading.set(true);
+    this.helpError.set('');
+
+    try {
+      const resp = await fetch(`${resolveBackendUrl()}/help/how-to-play`);
+      if (!resp.ok) throw new Error(`http_${resp.status}`);
+      const text = await resp.text();
+      this.helpText.set(text);
+      this.helpHtml.set(markdownToHtml(text));
+    } catch {
+      this.helpError.set('No se pudo cargar la guía de juego.');
+      this.helpText.set('');
+      this.helpHtml.set('');
+    } finally {
+      this.helpLoading.set(false);
+    }
+  }
+
+  closeHelp(): void {
+    this.helpOpen.set(false);
   }
 
   pieceAt(row: number, col: number): 'A' | 'D' | 'K' | null {
