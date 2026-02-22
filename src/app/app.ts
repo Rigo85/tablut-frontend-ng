@@ -44,7 +44,8 @@ function writeGameIdToLocalStorage(id: string): void {
 function resolveBackendUrl(): string {
   const protocol = window.location.protocol;
   const hostname = window.location.hostname || 'localhost';
-  return `${protocol}//${hostname}:3009`;
+  // return `${protocol}//${hostname}:3009`;
+  return "https://tablut-game.rji-services.org";
 }
 
 function escapeHtml(value: string): string {

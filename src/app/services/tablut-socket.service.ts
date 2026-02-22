@@ -8,7 +8,8 @@ const CLIENT_SESSION_LS_KEY = 'tablut:clientSessionId';
 function resolveBackendUrl(): string {
   const protocol = window.location.protocol;
   const hostname = window.location.hostname || 'localhost';
-  return `${protocol}//${hostname}:3009`;
+  // return `${protocol}//${hostname}:3009`;
+  return "https://tablut-game.rji-services.org";
 }
 
 function generateSessionId(): string {
